@@ -137,9 +137,11 @@ namespace Azure.Search.Documents.Batching
             catch (RequestFailedException ex) when (ex.Status == 413) // Payload Too Large
             {
                 // Split the batch and try with smaller payloads
-                int half = (int)Math.Floor((double)batch.Count / 2.0);
-                var smaller = new List<PublisherAction<IndexDocumentsAction<T>>>(batch.Take(half));
-                foreach (PublisherAction<IndexDocumentsAction<T>> action in batch.Skip(half))
+                // Update 'BatchActionCount' so future submissions can avoid this error.
+                BatchActionCount = (int)Math.Floor((double)batch.Count / 2.0);
+
+                var smaller = new List<PublisherAction<IndexDocumentsAction<T>>>(batch.Take(BatchActionCount));
+                foreach (PublisherAction<IndexDocumentsAction<T>> action in batch.Skip(BatchActionCount))
                 {
                     // Add the second half to the retry queue without
                     // counting this as a retry attempt
@@ -233,7 +235,7 @@ namespace Azure.Search.Documents.Batching
         /// <param name="actions">The batch of actions.</param>
         /// <param name="results">The results.</param>
         /// <returns>Actions paired with their result.</returns>
-        private static IEnumerable<(PublisherAction<IndexDocumentsAction<T>>, IndexingResult)> AssociateResults(
+        private static IEnumerable<(PublisherAction<IndexDocumentsAction<T>> Action, IndexingResult Result)> AssociateResults(
             IList<PublisherAction<IndexDocumentsAction<T>>> actions,
             IReadOnlyList<IndexingResult> results)
         {
